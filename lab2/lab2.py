@@ -154,27 +154,6 @@ final = np.where(
         1.055 * np.power(bright, 1/2.4) - 0.055
 )
 
-print("M_cam_to_xyz:")
-print(M_cam_to_xyz)
-
-print("\ndeterminant:")
-print(np.linalg.det(M_cam_to_xyz))
-
-print("\nM_srgb_to_cam before normalization:")
-M = np.linalg.inv(M_cam_to_xyz) @ M_srgb_to_xyz
-print(M)
-
-print("\nrow sums:")
-print(M.sum(axis=1))
-
-M /= M.sum(axis=1, keepdims=True)
-
-print("\nnormalized:")
-print(M)
-
-print("\ncam -> sRGB:")
-print(np.linalg.inv(M))
-
 plt.figure(1)               # Creates the first separate window
 plt.imshow(final)
 plt.title("mine")
