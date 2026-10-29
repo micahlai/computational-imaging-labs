@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from lab6_2 import (
+    forward,
     match_psf_to_measurement,
     mean_downsample,
     normalize_unit_interval,
@@ -12,9 +13,9 @@ from lab6_2 import (
 )
 
 
-measurement = iio.imread("lab6/test_data/dlmd/lensless_measurement.png")
-psf_full = iio.imread("lab6/test_data/dlmd/psf.png")
-reference = iio.imread("lab6/test_data/dlmd/lensed_ground_truth.png")
+measurement = np.load("lab6/test_data/shamus-sample/im65.npy")
+psf_full = iio.imread("lab6/test_data/shamus-sample/psf.tiff")
+reference = np.load("lab6/test_data/shamus-sample/im65_gt.npy")
 
 # The public PSF is 4x the measurement resolution. Match it using block
 # averaging, then reduce every image once more to keep the FFT sweep fast.
@@ -28,6 +29,7 @@ reference = mean_downsample(reference, downsample)
 measurement = normalize_unit_interval(measurement)
 psf = normalize_unit_interval(psf)
 reference = normalize_unit_interval(reference)
+synthetic_measurement = forward(reference, psf)
 taus = 10.0 ** np.arange(-6, 6)
 reconstructions = [wiener(measurement, psf, tau) for tau in taus]
 
@@ -41,13 +43,15 @@ for axis, reconstruction, tau in zip(axes.flat, reconstructions, taus):
 figure.suptitle("Real DiffuserCam measurement: Wiener parameter sweep")
 figure.tight_layout()
 
-overview, overview_axes = plt.subplots(1, 3, figsize=(15, 4))
+overview, overview_axes = plt.subplots(1, 4, figsize=(15, 4))
 overview_axes[0].imshow(psf)
 overview_axes[0].set_title("PSF")
 overview_axes[1].imshow(measurement)
 overview_axes[1].set_title("DiffuserCam measurement")
 overview_axes[2].imshow(reference)
 overview_axes[2].set_title("Lensed reference")
+overview_axes[3].imshow(normalize_unit_interval(synthetic_measurement))
+overview_axes[3].set_title("Synthetic forward measurement")
 for axis in overview_axes:
     axis.axis("off")
 overview.tight_layout()
