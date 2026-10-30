@@ -59,12 +59,29 @@ def pad(image: ArrayLike) -> FloatImage:
     image_array = _as_image(image, "image")
     height, width = image_array.shape[:2]
     pad_width = [
-        (height // 2, height - height // 2),
-        (width // 2, width - width // 2),
+        (height - height // 2, height // 2),
+        (width - width // 2, width // 2),
     ]
     if image_array.ndim == 3:
         pad_width.append((0, 0))
     return np.pad(image_array, pad_width, mode="constant")
+
+
+def _pad_measurement(image: FloatImage, boundary: str) -> FloatImage:
+    """Pad a captured image using the requested inverse boundary model."""
+    if boundary == "zero":
+        return pad(image)
+    if boundary != "edge":
+        raise ValueError("boundary must be 'zero' or 'edge'")
+
+    height, width = image.shape[:2]
+    pad_width = [
+        (height - height // 2, height // 2),
+        (width - width // 2, width // 2),
+    ]
+    if image.ndim == 3:
+        pad_width.append((0, 0))
+    return np.pad(image, pad_width, mode="edge")
 
 
 def crop(image: ArrayLike, output_shape: tuple[int, int] | None = None) -> FloatImage:
@@ -91,8 +108,10 @@ def crop(image: ArrayLike, output_shape: tuple[int, int] | None = None) -> Float
     if height > padded_height or width > padded_width:
         raise ValueError("output_shape cannot be larger than the image")
 
-    row_start = (padded_height - height) // 2
-    col_start = (padded_width - width) // 2
+    # Use the upper/right choice for an odd-sized centered crop. This mirrors
+    # :func:`pad`, keeping the original center pixel at the padded FFT center.
+    row_start = (padded_height - height + 1) // 2
+    col_start = (padded_width - width + 1) // 2
     return image_array[row_start : row_start + height, col_start : col_start + width, ...]
 
 
@@ -141,11 +160,23 @@ def naive_deconvolution(measurement: ArrayLike, psf: ArrayLike) -> FloatImage:
     return np.real(crop(padded_reconstruction, measurement_array.shape[:2]))
 
 
-def wiener(measurement: ArrayLike, psf: ArrayLike, tau: float) -> FloatImage:
+def wiener(
+    measurement: ArrayLike,
+    psf: ArrayLike,
+    tau: float,
+    *,
+    boundary: str = "zero",
+) -> FloatImage:
     """Reconstruct an image with a scalar-regularized Wiener filter.
 
     The filter is ``conj(H) / (abs(H)**2 + tau)``.  ``tau`` must be positive;
     use :func:`naive_deconvolution` to demonstrate the unregularized case.
+
+    ``boundary="zero"`` implements the padding specified by the handout.
+    ``boundary="edge"`` extends the nearest sensor value into the unmeasured
+    convolution region.  This is still a direct, non-iterative Wiener inverse,
+    but it avoids the hard zero boundary whose Fourier transform produces
+    horizontal and vertical streaks.
     """
     measurement_array = _as_image(measurement, "measurement")
     psf_array = _as_image(psf, "psf")
@@ -154,7 +185,10 @@ def wiener(measurement: ArrayLike, psf: ArrayLike, tau: float) -> FloatImage:
     if not np.isscalar(tau) or not np.isfinite(tau) or tau <= 0:
         raise ValueError("tau must be a positive finite scalar")
 
-    measurement_spectrum = np.fft.fft2(pad(measurement_array), axes=(0, 1))
+    measurement_spectrum = np.fft.fft2(
+        _pad_measurement(measurement_array, boundary),
+        axes=(0, 1),
+    )
     psf_spectrum = np.fft.fft2(pad(psf_array), axes=(0, 1))
     psf_spectrum = _broadcast_otf(psf_spectrum, measurement_array)
 
@@ -216,12 +250,27 @@ def normalize_unit_interval(image: ArrayLike) -> FloatImage:
     return (image_array - minimum) / (maximum - minimum)
 
 
+def normalize_psf(psf: ArrayLike) -> FloatImage:
+    """Normalize every PSF channel to unit DC response.
+
+    A sum-normalized PSF preserves constant brightness and gives ``tau`` a
+    stable scale.  Min-max normalization is appropriate for display images,
+    but its arbitrary PSF gain makes Wiener parameters difficult to interpret.
+    """
+    psf_array = _as_image(psf, "psf")
+    channel_sums = psf_array.sum(axis=(0, 1), keepdims=True)
+    if np.any(np.isclose(channel_sums, 0.0)):
+        raise ValueError("every psf channel must have a nonzero sum")
+    return psf_array / channel_sums
+
+
 __all__ = [
     "crop",
     "forward",
     "match_psf_to_measurement",
     "mean_downsample",
     "naive_deconvolution",
+    "normalize_psf",
     "normalize_unit_interval",
     "pad",
     "wiener",

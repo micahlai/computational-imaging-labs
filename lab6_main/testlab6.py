@@ -8,6 +8,7 @@ from lab6_2 import (
     forward,
     match_psf_to_measurement,
     mean_downsample,
+    normalize_psf,
     normalize_unit_interval,
     wiener,
 )
@@ -27,11 +28,18 @@ reference = mean_downsample(reference, downsample)
 
 # The handout specifies normalized inputs and a Wiener sweep in powers of ten.
 measurement = normalize_unit_interval(measurement)
-psf = normalize_unit_interval(psf)
+# A convolution kernel is normalized by its sum, not its display range. This
+# makes H(0) = 1 in every channel and gives tau a meaningful, stable scale.
+psf = normalize_psf(psf)
 reference = normalize_unit_interval(reference)
 synthetic_measurement = forward(reference, psf)
 taus = 10.0 ** np.arange(-6, 6)
-reconstructions = [wiener(measurement, psf, tau) for tau in taus]
+reconstructions = [
+    # Edge extension estimates the unmeasured part of the cropped convolution
+    # without inserting a sharp zero rectangle, which caused the cross-hatch.
+    wiener(measurement, psf, tau, boundary="edge")
+    for tau in taus
+]
 
 figure, axes = plt.subplots(3, 4, figsize=(16, 10))
 for axis, reconstruction, tau in zip(axes.flat, reconstructions, taus):
@@ -40,11 +48,11 @@ for axis, reconstruction, tau in zip(axes.flat, reconstructions, taus):
     axis.imshow(normalize_unit_interval(reconstruction))
     axis.set_title(f"tau = {tau:g}")
     axis.axis("off")
-figure.suptitle("Real DiffuserCam measurement: Wiener parameter sweep")
+figure.suptitle("Real DiffuserCam measurement: boundary-conditioned Wiener sweep")
 figure.tight_layout()
 
 overview, overview_axes = plt.subplots(1, 4, figsize=(15, 4))
-overview_axes[0].imshow(psf)
+overview_axes[0].imshow(normalize_unit_interval(psf))
 overview_axes[0].set_title("PSF")
 overview_axes[1].imshow(measurement)
 overview_axes[1].set_title("DiffuserCam measurement")

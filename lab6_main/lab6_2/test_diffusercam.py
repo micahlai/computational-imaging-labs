@@ -7,6 +7,7 @@ from lab6_2 import (
     forward,
     match_psf_to_measurement,
     mean_downsample,
+    normalize_psf,
     normalize_unit_interval,
     pad,
     wiener,
@@ -23,7 +24,7 @@ class DiffuserCamTests(unittest.TestCase):
 
     def test_centered_impulse_psf_is_identity_forward_model(self):
         rng = np.random.default_rng(4660)
-        scene = rng.random((12, 14, 3))
+        scene = rng.random((11, 15, 3))
         psf = np.zeros_like(scene)
         psf[scene.shape[0] // 2, scene.shape[1] // 2, :] = 1.0
 
@@ -68,10 +69,33 @@ class DiffuserCamTests(unittest.TestCase):
         self.assertEqual(float(display[0, 0, 0]), 0.0)
         self.assertEqual(float(display[0, 0, 2]), 1.0)
 
+    def test_psf_normalization_sets_each_channel_sum_to_one(self):
+        psf = np.arange(1, 4 * 6 * 3 + 1, dtype=float).reshape(4, 6, 3)
+
+        normalized = normalize_psf(psf)
+
+        np.testing.assert_allclose(normalized.sum(axis=(0, 1)), np.ones(3))
+
+    def test_edge_boundary_preserves_identity_wiener_result(self):
+        rng = np.random.default_rng(60)
+        measurement = rng.random((9, 13, 3))
+        psf = np.zeros_like(measurement)
+        psf[measurement.shape[0] // 2, measurement.shape[1] // 2, :] = 1.0
+        tau = 0.1
+
+        reconstruction = wiener(measurement, psf, tau, boundary="edge")
+
+        np.testing.assert_allclose(reconstruction, measurement / (1.0 + tau), atol=1e-12)
+
     def test_wiener_rejects_nonpositive_tau(self):
         image = np.ones((4, 4))
         with self.assertRaisesRegex(ValueError, "positive"):
             wiener(image, image, 0.0)
+
+    def test_wiener_rejects_unknown_boundary(self):
+        image = np.ones((4, 4))
+        with self.assertRaisesRegex(ValueError, "boundary"):
+            wiener(image, image, 1.0, boundary="periodic")
 
 
 if __name__ == "__main__":

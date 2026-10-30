@@ -14,6 +14,7 @@ try:
         forward,
         match_psf_to_measurement,
         mean_downsample,
+        normalize_psf,
         normalize_unit_interval,
         wiener,
     )
@@ -22,6 +23,7 @@ except ImportError:  # Allow `python lab6_2/run_example.py ...`.
         forward,
         match_psf_to_measurement,
         mean_downsample,
+        normalize_psf,
         normalize_unit_interval,
         wiener,
     )
@@ -88,14 +90,16 @@ def main() -> None:
             reference = mean_downsample(reference, args.downsample)
 
     measurement = normalize_unit_interval(measurement)
-    psf = normalize_unit_interval(psf)
+    psf = normalize_psf(psf)
     if reference is not None:
         reference = normalize_unit_interval(reference)
 
     synthetic = forward(reference, psf) if reference is not None else None
-    real_reconstructions = [wiener(measurement, psf, tau) for tau in args.taus]
+    real_reconstructions = [
+        wiener(measurement, psf, tau, boundary="edge") for tau in args.taus
+    ]
     synthetic_reconstructions = (
-        [wiener(synthetic, psf, tau) for tau in args.taus]
+        [wiener(synthetic, psf, tau, boundary="edge") for tau in args.taus]
         if synthetic is not None
         else None
     )
