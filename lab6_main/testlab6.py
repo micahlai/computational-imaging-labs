@@ -4,7 +4,7 @@ import imageio.v3 as iio
 import matplotlib.pyplot as plt
 import numpy as np
 
-from lab6_2 import (
+from lab6_main.lab6_2 import (
     forward,
     match_psf_to_measurement,
     mean_downsample,

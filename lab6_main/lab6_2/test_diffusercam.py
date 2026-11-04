@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from lab6_2 import (
+from lab6_main.lab6_2 import (
     crop,
     forward,
     match_psf_to_measurement,

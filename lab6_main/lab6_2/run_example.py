@@ -19,7 +19,7 @@ try:
         wiener,
     )
 except ImportError:  # Allow `python lab6_2/run_example.py ...`.
-    from diffusercam import (
+    from lab6_main.lab6_2.diffusercam import (
         forward,
         match_psf_to_measurement,
         mean_downsample,

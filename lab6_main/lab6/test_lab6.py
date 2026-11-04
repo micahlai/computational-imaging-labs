@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from lab6 import convolve_with_psf, inverse_convolution, psf_to_otf
+from lab6_main.lab6 import convolve_with_psf, inverse_convolution, psf_to_otf
 
 
 class DiffuserCameraTests(unittest.TestCase):
