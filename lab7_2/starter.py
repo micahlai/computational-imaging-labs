@@ -187,7 +187,6 @@ class InverseSolver:
         Returns:
             Estimated largest eigenvalue (float)
         """
-        # TODO
         b = np.random.randn(*full_shape)
         b /= np.linalg.norm(b)
         for _ in range(num_iters):

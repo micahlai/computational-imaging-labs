@@ -7,6 +7,9 @@ import numpy as np
 from inverse_solver import InverseSolver, adjoint_test
 
 
+master_iter: int = 2500
+
+
 def show_image(axis, image, title):
     low, high = np.percentile(image, (0.5, 99.5))
     display = np.clip((image - low) / max(high - low, np.finfo(float).eps), 0, 1)
@@ -30,7 +33,7 @@ algorithms = (
     ("ista", "ISTA"),
     ("fista", "FISTA"),
 )
-snapshot_iters = (0, 100, 250, 500, 750, 1000)
+snapshot_iters = np.linspace(0, master_iter, 6, dtype=int)
 solvers = {}
 snapshots = {}
 step_size = None
@@ -39,6 +42,7 @@ for algorithm, title in algorithms:
     solver = InverseSolver(
         psf,
         algorithm=algorithm,
+        num_iters=master_iter,
         prox_fn=None if algorithm == "gradient_descent" else lambda x, l, s: np.maximum(x, 0),
         step_size=step_size,
     )
@@ -63,8 +67,8 @@ for axis, image, title in zip(
     show_image(axis, image, title)
 for axis, (algorithm, title) in zip(axes[1], algorithms):
     show_image(
-        axis, snapshots[algorithm][snapshot_iters[-1]],
-        f"{title}: {snapshot_iters[-1]} iterations",
+        axis, snapshots[algorithm][master_iter],
+        f"{title}: {master_iter} iterations",
     )
 overview.tight_layout()
 
