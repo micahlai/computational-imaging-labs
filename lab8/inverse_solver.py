@@ -153,28 +153,58 @@ class InverseSolver:
         Returns:
             (x_new, loss) where loss = self.loss(error)
         """
-        # TODO
-        raise NotImplementedError
+        # x_new, loss = self.gd_update(x, y)
+
+        error = self.A(x)-y
+        w = x - self.step_size * self.A_adjoint(error)
+        x_new = self.prox(w)
+        return x_new, self.loss(error)
+
+    # def fista_update(self, v, t, x, y):
+    #     """One FISTA (accelerated proximal gradient) step.
+
+    #     w = v - step_size * A_adjoint(A(v) - y)
+    #     x_new = prox(w)
+    #     t_new = (1 + sqrt(1 + 4*t^2)) / 2
+    #     beta = (t - 1) / t_new
+    #     v_new = x_new + beta * (x_new - x)
+
+    #     Args:
+    #         v: Momentum variable (2H, 2W, C)
+    #         t: Acceleration parameter (float)
+    #         x: Current estimate (2H, 2W, C)
+    #         y: Measurement (H, W, C)
+    #     Returns:
+    #         (v_new, t_new, x_new, loss) tuple
+    #     """
+    #     x_new, _ = self.ista_update(v, y)
+    #     t_new = (1.0 + np.sqrt(1.0 + 4.0 * t * t)) / 2.0
+    #     v_new = x_new + ((t - 1.0) / t_new) * (x_new - x)
+    #     return v_new, t_new, x_new, self.loss(self.A(x_new) - y)
 
     def fista_update(self, v, t, x, y):
-        """One FISTA (accelerated proximal gradient) step.
-
-        w = v - step_size * A_adjoint(A(v) - y)
-        x_new = prox(w)
-        t_new = (1 + sqrt(1 + 4*t^2)) / 2
-        beta = (t - 1) / t_new
-        v_new = x_new + beta * (x_new - x)
-
-        Args:
-            v: Momentum variable (2H, 2W, C)
-            t: Acceleration parameter (float)
-            x: Current estimate (2H, 2W, C)
-            y: Measurement (H, W, C)
-        Returns:
-            (v_new, t_new, x_new, loss) tuple
-        """
-        # TODO
-        raise NotImplementedError
+            """One FISTA (accelerated proximal gradient) step.
+    
+            w = v - step_size * A_adjoint(A(v) - y)
+            x_new = prox(w)
+            t_new = (1 + sqrt(1 + 4*t^2)) / 2
+            beta = (t - 1) / t_new
+            v_new = x_new + beta * (x_new - x)
+    
+            Args:
+                v: Momentum variable (2H, 2W, C)
+                t: Acceleration parameter (float)
+                x: Current estimate (2H, 2W, C)
+                y: Measurement (H, W, C)
+            Returns:
+                (v_new, t_new, x_new, loss) tuple
+            """
+            error = self.A(v) - y
+            x_new = self.prox(v - self.step_size * self.A_adjoint(error))
+            t_new = (1+np.sqrt(1+4*t**2))/2
+            beta = (t-1) / t_new
+            v_new = x_new + beta * (x_new - x)
+            return v_new, t_new, x_new, self.loss(error)
 
     def loss(self, error):
         """Compute 0.5 * ||error||^2."""

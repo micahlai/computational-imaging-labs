@@ -17,7 +17,7 @@ Usage:
 """
 
 import numpy as np
-import pywt
+# import pywt
 
 
 # ----------------------------------------------------------------
@@ -38,8 +38,7 @@ def soft_thresh(z, threshold):
     Returns:
         Soft-thresholded array (same shape as z)
     """
-    # TODO
-    raise NotImplementedError
+    return np.sign(z) * np.maximum(np.abs(z) - threshold, 0)
 
 
 # ----------------------------------------------------------------
@@ -62,5 +61,15 @@ def prox_native(x, lam, step_size):
     Returns:
         Result of applying the proximal operator
     """
-    # TODO: use soft_thresh and prox_nonneg
-    raise NotImplementedError
+
+    # return 0.5 * (np.maximum(x, 0) + soft_thresh(x, lam * step_size))
+    return np.maximum(x - lam * step_size, 0)
+
+
+
+def prox_nonneg(x, lam, step_size):
+    """Non-negativity proximal operator: max(x, 0).
+
+    This is provided as a reference — it was already used in Lab 7.
+    """
+    return np.maximum(x, 0)
