@@ -1,0 +1,35 @@
+{
+  "scope": "Shamus pair, 2x downsampling, same input preprocessing as testlab6.py",
+  "real_mean_rgb": [
+    0.22986758361064713,
+    0.3896052164562971,
+    0.426094364089617
+  ],
+  "synthetic_mean_rgb": [
+    0.09592034304330363,
+    0.14821586294295971,
+    0.13907154227445448
+  ],
+  "real_mean_blue_over_green": 1.0936567224771911,
+  "synthetic_mean_blue_over_green": 0.9383040351623883,
+  "shared_exposure_fit": 2.783352307883088,
+  "rgb_gain_fit_including_exposure": [
+    2.417520006895427,
+    2.6496071874779124,
+    3.0921600213134313
+  ],
+  "rgb_gain_fit_relative_to_green": [
+    0.9124069478376519,
+    1.0,
+    1.1670258278008268
+  ],
+  "channel_spatial_correlations": [
+    0.9948778859960427,
+    0.9944092526296201,
+    0.9938140347647305
+  ],
+  "rmse_after_shared_exposure": 0.04593337483784808,
+  "rmse_after_rgb_gain_fit": 0.02383113865530485,
+  "rmse_preserving_raw_psf_gains_with_fitted_shared_exposure": 0.050902826666130885,
+  "limitation": "Fits this pair only; cannot distinguish PSF throughput, camera white balance, transfer functions, or reference processing."
+}

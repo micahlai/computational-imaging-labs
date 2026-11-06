@@ -1,4 +1,4 @@
-"""Run the padded DiffuserCam model and a Wiener-parameter sweep."""
+"""Run the DiffuserCam model and a boundary-aware Wiener-parameter sweep."""
 
 from __future__ import annotations
 
@@ -30,10 +30,12 @@ except ImportError:  # Allow `python lab6_2/run_example.py ...`.
 
 
 DEFAULT_TAUS = tuple(10.0**power for power in range(-6, 6))
+BOUNDARIES = ("zero", "edge", "circular", "periodic_smooth")
 
 
 def _load(path: Path) -> np.ndarray:
-    return np.asarray(iio.imread(path), dtype=np.float64)
+    image = np.load(path, allow_pickle=False) if path.suffix.lower() == ".npy" else iio.imread(path)
+    return np.asarray(image, dtype=np.float64)
 
 
 def _show_image(axis: plt.Axes, image: np.ndarray, title: str) -> None:
@@ -51,6 +53,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--measurement", required=True, type=Path)
     parser.add_argument("--psf", required=True, type=Path)
     parser.add_argument("--reference", type=Path, help="optional lensed ground truth")
+    parser.add_argument(
+        "--boundary", choices=BOUNDARIES, default="periodic_smooth",
+        help="inverse boundary handling (default: periodic_smooth, no padding)",
+    )
+    parser.add_argument(
+        "--compare-boundaries", action="store_true",
+        help="show zero, edge, circular, and periodic_smooth for every tau",
+    )
     parser.add_argument(
         "--downsample",
         type=int,
@@ -95,14 +105,15 @@ def main() -> None:
         reference = normalize_unit_interval(reference)
 
     synthetic = forward(reference, psf) if reference is not None else None
-    real_reconstructions = [
-        wiener(measurement, psf, tau, boundary="edge") for tau in args.taus
+    boundaries = BOUNDARIES if args.compare_boundaries else (args.boundary,)
+    sources = [(measurement, "Real")]
+    if synthetic is not None:
+        sources.append((synthetic, "Synthetic"))
+    reconstruction_rows = [
+        (f"{label}, {boundary}", [wiener(source, psf, tau, boundary=boundary) for tau in args.taus])
+        for boundary in boundaries
+        for source, label in sources
     ]
-    synthetic_reconstructions = (
-        [wiener(synthetic, psf, tau, boundary="edge") for tau in args.taus]
-        if synthetic is not None
-        else None
-    )
 
     overview_images = [(psf, "PSF"), (measurement, "Real measurement")]
     if reference is not None and synthetic is not None:
@@ -114,7 +125,7 @@ def main() -> None:
         _show_image(axis, image, title)
     overview.tight_layout()
 
-    row_count = 2 if synthetic_reconstructions is not None else 1
+    row_count = len(reconstruction_rows)
     column_count = min(4, len(args.taus))
     group_count = int(np.ceil(len(args.taus) / column_count))
     figure, axes = plt.subplots(
@@ -127,16 +138,12 @@ def main() -> None:
     used_axes: set[tuple[int, int]] = set()
     for index, tau in enumerate(args.taus):
         group, column = divmod(index, column_count)
-        real_row = group * row_count
-        _show_image(axes[real_row, column], real_reconstructions[index], f"Real, tau={tau:g}")
-        used_axes.add((real_row, column))
-        if synthetic_reconstructions is not None:
+        for row_offset, (label, reconstructions) in enumerate(reconstruction_rows):
+            row = group * row_count + row_offset
             _show_image(
-                axes[real_row + 1, column],
-                synthetic_reconstructions[index],
-                f"Synthetic, tau={tau:g}",
+                axes[row, column], reconstructions[index], f"{label}, tau={tau:g}",
             )
-            used_axes.add((real_row + 1, column))
+            used_axes.add((row, column))
 
     for index in np.ndindex(axes.shape):
         if index not in used_axes:
@@ -148,6 +155,8 @@ def main() -> None:
         figure.savefig(args.save, dpi=160, bbox_inches="tight")
     if not args.no_show:
         plt.show()
+    plt.close(overview)
+    plt.close(figure)
 
 
 if __name__ == "__main__":

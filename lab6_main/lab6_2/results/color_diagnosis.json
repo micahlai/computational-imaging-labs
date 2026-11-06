@@ -1,0 +1,60 @@
+{
+  "shamus-sample": {
+    "tau": 1e-06,
+    "chroma_tau": 0.0001,
+    "psf_channel_sums_relative_to_mean_before_normalization": [
+      1.0125218739100121,
+      0.8236947010903821,
+      1.1637834249996057
+    ],
+    "raw_reconstruction_mean_rgb": [
+      0.22986735374329853,
+      0.38960482685147063,
+      0.42609393799567474
+    ],
+    "negative_fraction_rgb": [
+      0.44799382716049385,
+      0.4169753086419753,
+      0.4453086419753086
+    ],
+    "display_value_of_physical_zero_after_minmax": 0.40216548095847016,
+    "wiener_only_white_noise_rms_gain_rgb": [
+      322.36517464905114,
+      294.03391132299,
+      328.1262831506284
+    ],
+    "rgb_yuv_roundtrip_max_error": 2.6645352591003757e-15,
+    "luma_max_change_before_display": 1.7763568394002505e-15,
+    "high_frequency_chroma_power_ratio_mixed_over_rgb": 0.013815821478851626,
+    "mixed_display_clipped_fraction": 0.0
+  },
+  "dlmd": {
+    "tau": 1e-06,
+    "chroma_tau": 0.0001,
+    "psf_channel_sums_relative_to_mean_before_normalization": [
+      1.0125218739100121,
+      0.8236947010903821,
+      1.1637834249996057
+    ],
+    "raw_reconstruction_mean_rgb": [
+      0.4102777017693628,
+      0.4416875067904553,
+      0.45332831165808835
+    ],
+    "negative_fraction_rgb": [
+      0.43385802469135804,
+      0.415,
+      0.42941358024691356
+    ],
+    "display_value_of_physical_zero_after_minmax": 0.4335728332988653,
+    "wiener_only_white_noise_rms_gain_rgb": [
+      322.36517464905114,
+      294.03391132299,
+      328.1262831506284
+    ],
+    "rgb_yuv_roundtrip_max_error": 2.6645352591003757e-15,
+    "luma_max_change_before_display": 1.7763568394002505e-15,
+    "high_frequency_chroma_power_ratio_mixed_over_rgb": 0.011781397740785,
+    "mixed_display_clipped_fraction": 0.0
+  }
+}

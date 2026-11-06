@@ -1,10 +1,12 @@
 """Display a Wiener-parameter sweep for the public DiffuserCam example."""
 
+from pathlib import Path
+
 import imageio.v3 as iio
 import matplotlib.pyplot as plt
 import numpy as np
 
-from lab6_main.lab6_2 import (
+from lab6_2 import (
     forward,
     match_psf_to_measurement,
     mean_downsample,
@@ -14,9 +16,10 @@ from lab6_main.lab6_2 import (
 )
 
 
-measurement = np.load("lab6/test_data/shamus-sample/im65.npy")
-psf_full = iio.imread("lab6/test_data/shamus-sample/psf.tiff")
-reference = np.load("lab6/test_data/shamus-sample/im65_gt.npy")
+data_dir = Path(__file__).resolve().parent / "lab6/test_data/shamus-sample"
+measurement = np.load(data_dir / "im65.npy")
+psf_full = iio.imread(data_dir / "psf.tiff")
+reference = np.load(data_dir / "im65_gt.npy")
 
 # The public PSF is 4x the measurement resolution. Match it using block
 # averaging, then reduce every image once more to keep the FFT sweep fast.
@@ -35,9 +38,9 @@ reference = normalize_unit_interval(reference)
 synthetic_measurement = forward(reference, psf)
 taus = 10.0 ** np.arange(-6, 6)
 reconstructions = [
-    # Edge extension estimates the unmeasured part of the cropped convolution
-    # without inserting a sharp zero rectangle, which caused the cross-hatch.
-    wiener(measurement, psf, tau, boundary="edge")
+    # Remove the smooth boundary mismatch, then filter at the native size.
+    # Neither the measurement nor the PSF is zero-padded in this mode.
+    wiener(measurement, psf, tau, boundary="periodic_smooth")
     for tau in taus
 ]
 

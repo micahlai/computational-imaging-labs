@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -91,6 +92,55 @@ class DiffuserCamTests(unittest.TestCase):
         image = np.ones((4, 4))
         with self.assertRaisesRegex(ValueError, "positive"):
             wiener(image, image, 0.0)
+
+    def test_circular_identity_preserves_alignment_and_channel_broadcasting(self):
+        rng = np.random.default_rng(61)
+        for shape in [(9, 13), (10, 8), (9, 13, 3)]:
+            for psf_channels in [(), (1,)]:
+                with self.subTest(shape=shape, psf_channels=psf_channels):
+                    measurement = rng.normal(size=shape)
+                    psf = np.zeros(shape[:2] + psf_channels)
+                    psf[shape[0] // 2, shape[1] // 2] = 1
+                    result = wiener(measurement, psf, 0.25, boundary="circular")
+                    np.testing.assert_allclose(result, measurement / 1.25, atol=1e-12)
+
+    def test_circular_recovers_asymmetric_blur_at_low_tau(self):
+        rng = np.random.default_rng(62)
+        scene = rng.normal(size=(9, 12, 3))
+        psf = np.zeros((9, 12))
+        psf[4, 6], psf[5, 6], psf[4, 8] = 0.7, 0.2, 0.1
+        # Independent spatial circular convolution checks kernel phase/alignment.
+        measurement = (0.7 * scene + 0.2 * np.roll(scene, 1, axis=0)
+                       + 0.1 * np.roll(scene, 2, axis=1))
+        result = wiener(measurement, psf, 1e-10, boundary="circular")
+        np.testing.assert_allclose(result, scene, atol=3e-9)
+
+    def test_periodic_smooth_removes_ramp_seam_preserves_mean_without_padding(self):
+        # For an affine ramp, the periodic component has 1/N of its slope.
+        # This checks the Poisson sign, corner contributions and RGB independence.
+        for height, width in [(9, 12), (10, 7), (1, 8), (8, 1), (1, 1)]:
+            with self.subTest(shape=(height, width)):
+                rows = np.arange(height)[:, None] - (height - 1) / 2
+                cols = np.arange(width)[None, :] - (width - 1) / 2
+                ramp = 2 * rows + 3 * cols
+                image = 5 + ramp[..., None] * np.array([1, 2, -1])
+                expected = 5 + (2 * rows / height + 3 * cols / width)[..., None] * np.array([1, 2, -1])
+                psf = np.zeros((height, width))
+                psf[height // 2, width // 2] = 1
+                with patch("numpy.pad", side_effect=AssertionError("must not pad")):
+                    result = wiener(image, psf, 1e-6, boundary="periodic_smooth")
+                np.testing.assert_allclose(result, expected / (1 + 1e-6), atol=1e-11)
+                np.testing.assert_allclose(result.mean(axis=(0, 1)), image.mean(axis=(0, 1)) / (1 + 1e-6))
+
+    def test_periodic_smooth_preserves_image_when_opposite_borders_match(self):
+        rng = np.random.default_rng(63)
+        measurement = rng.normal(size=(11, 14))
+        measurement[-1] = measurement[0]
+        measurement[:, -1] = measurement[:, 0]
+        psf = np.zeros_like(measurement)
+        psf[5, 7] = 1
+        result = wiener(measurement, psf, 0.1, boundary="periodic_smooth")
+        np.testing.assert_allclose(result, measurement / 1.1, atol=1e-12)
 
     def test_wiener_rejects_unknown_boundary(self):
         image = np.ones((4, 4))

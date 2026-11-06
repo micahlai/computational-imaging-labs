@@ -1,4 +1,4 @@
-"""Padded DiffuserCam forward model and Wiener deconvolution.
+"""Padded DiffuserCam forward model and boundary-aware Wiener deconvolution.
 
 The implementation follows the model
 
@@ -160,6 +160,38 @@ def naive_deconvolution(measurement: ArrayLike, psf: ArrayLike) -> FloatImage:
     return np.real(crop(padded_reconstruction, measurement_array.shape[:2]))
 
 
+def _periodic_component(image: FloatImage) -> FloatImage:
+    """Remove Moisan's zero-mean smooth boundary component, without padding.
+
+    Independent NumPy implementation of periodic plus smooth decomposition:
+    https://helios2.mi.parisdescartes.fr/~moisan/p+s/
+    The periodic Poisson solve distributes opposite-border jumps into a smooth
+    component. Subtracting it suppresses the FFT's boundary cross while keeping
+    the per-channel mean. It can also remove genuine slow scene variation.
+    """
+    jumps = np.zeros_like(image)
+    row_jump = image[-1, ...] - image[0, ...]
+    jumps[0, ...] += row_jump
+    jumps[-1, ...] -= row_jump
+    col_jump = image[:, -1, ...] - image[:, 0, ...]
+    jumps[:, 0, ...] += col_jump
+    jumps[:, -1, ...] -= col_jump
+
+    height, width = image.shape[:2]
+    # Eigenvalues of the periodic discrete Laplacian (stable near DC).
+    eigenvalues = -4.0 * (
+        np.sin(np.pi * np.fft.fftfreq(height))[:, None] ** 2
+        + np.sin(np.pi * np.fft.fftfreq(width))[None, :] ** 2
+    )
+    eigenvalues[0, 0] = 1.0  # The DC component is explicitly set to zero below.
+    if image.ndim == 3:
+        eigenvalues = eigenvalues[..., None]
+    smooth_spectrum = np.fft.fft2(jumps, axes=(0, 1)) / eigenvalues
+    smooth_spectrum[0, 0, ...] = 0.0
+    smooth = np.fft.ifft2(smooth_spectrum, axes=(0, 1)).real
+    return image - smooth
+
+
 def wiener(
     measurement: ArrayLike,
     psf: ArrayLike,
@@ -175,8 +207,16 @@ def wiener(
     ``boundary="zero"`` implements the padding specified by the handout.
     ``boundary="edge"`` extends the nearest sensor value into the unmeasured
     convolution region.  This is still a direct, non-iterative Wiener inverse,
-    but it avoids the hard zero boundary whose Fourier transform produces
-    horizontal and vertical streaks.
+    but can still leave discontinuities at the FFT's periodic seam.
+
+    ``boundary="circular"`` uses native-size FFTs with no padding.
+    ``boundary="periodic_smooth"`` first subtracts the measurement's smooth
+    boundary component, then uses the same native-size Wiener inverse. Neither
+    the measurement nor PSF is padded in these modes. The PSF is not modified
+    apart from shifting its center to the FFT origin. These are circular-model
+    approximations, not exact inverses of the cropped linear forward model.
+    Boundary conditioning can change low-frequency scene content; it reduces
+    directional artifacts but does not make amplified noise spatially white.
     """
     measurement_array = _as_image(measurement, "measurement")
     psf_array = _as_image(psf, "psf")
@@ -184,6 +224,20 @@ def wiener(
 
     if not np.isscalar(tau) or not np.isfinite(tau) or tau <= 0:
         raise ValueError("tau must be a positive finite scalar")
+
+    if boundary in ("circular", "periodic_smooth"):
+        if boundary == "periodic_smooth":
+            measurement_array = _periodic_component(measurement_array)
+        measurement_spectrum = np.fft.fft2(measurement_array, axes=(0, 1))
+        psf_spectrum = np.fft.fft2(
+            np.fft.ifftshift(psf_array, axes=(0, 1)), axes=(0, 1)
+        )
+        psf_spectrum = _broadcast_otf(psf_spectrum, measurement_array)
+        wiener_filter = np.conjugate(psf_spectrum) / (np.abs(psf_spectrum) ** 2 + tau)
+        return np.fft.ifft2(wiener_filter * measurement_spectrum, axes=(0, 1)).real
+
+    if boundary not in ("zero", "edge"):
+        raise ValueError("boundary must be 'zero', 'edge', 'circular', or 'periodic_smooth'")
 
     measurement_spectrum = np.fft.fft2(
         _pad_measurement(measurement_array, boundary),
