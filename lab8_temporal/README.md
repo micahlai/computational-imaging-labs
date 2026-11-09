@@ -23,6 +23,7 @@ python -m pip install -r lab8_temporal/requirements.txt
 ```sh
 python lab8_temporal/prep.py input.mp4 psf.tiff \
   --resolution 160 120 --psf-scale 1 \
+  --noise-std 0.01 --noise-seed 42 \
   --max-frames 30 --output-dir lab8_temporal/prepared
 ```
 
@@ -46,17 +47,28 @@ A TIFF may contain a grayscale or RGB(A) image; RGB channels are averaged into
 one shared kernel, ignoring alpha. The PSF must be nonnegative and nonzero and
 is normalized to unit sum. It is assumed centered at `(kh//2, kw//2)`.
 
+`--noise-std` controls additive zero-mean Gaussian noise **after convolution**.
+It is an absolute standard deviation on the [0,1] intensity scale, not an
+exponent: `0.01` is about 2.55 intensity levels in an 8-bit image. Noise is
+independent across pixels, channels, and frames. The default is `0` (no noise).
+Use `--noise-seed 42` (or any nonnegative integer) to reproduce the same noise
+for the same inputs; omitting the seed generates fresh noise each run.
+
 Preparation writes:
 
 - `dataset.npz`: floating-point `measurement`, `reference`, the exact processed
-  `psf`, scalar `fps`, and JSON `metadata`. All video arrays are `(H,W,C,T)`.
+  `psf`, scalar `fps`, and JSON `metadata`. `measurement` includes any added
+  noise; `reference` remains clean. All video arrays are `(H,W,C,T)`.
 - `blurred.mp4` and `reference.mp4`: viewable previews.
-- `metadata.json`: source paths, dimensions, scale, FPS, and model conventions.
+- `metadata.json`: source paths, dimensions, scale, FPS, noise standard
+  deviation/seed, and model conventions.
 
 Use `dataset.npz` for consistent synthetic inversion. The preview MP4s use lossy
 H.264, clip to [0,1], quantize to 8-bit, and omit audio. They do not rescale
 individual frames or change the target dimensions, including odd dimensions.
-The arrays retain their original values. No noise is added in preparation.
+The arrays retain their original values, including noisy measurements below
+zero or above one. `main.py` automatically reconstructs the saved noisy
+measurement using the stored PSF; it needs no extra noise parameter.
 
 ## Reconstruct
 

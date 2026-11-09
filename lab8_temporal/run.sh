@@ -1,0 +1,2 @@
+python main.py data/noise/dataset.npz --spatial-prior wavelet --temporal-prior wavelet --lambda-spatial -6 --lambda-temporal -6 --num-iters 250 --output-dir results/noise-wavelet
+python main.py data/noise/dataset.npz --spatial-prior tv --temporal-prior tv --lambda-spatial -6 --lambda-temporal -6 --num-iters 250 --output-dir results/noise-tv

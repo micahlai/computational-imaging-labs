@@ -170,6 +170,29 @@ def test_real_mp4_roundtrip_and_preparation(tmp_path):
         with pytest.raises(ValueError, match="smaller"):
             prepare(video, psf, bad_size, tmp_path / "bad")
     root = Path(__file__).resolve().parents[2]
+    # Exercise the noise CLI and verify seeded preparation matches the API.
+    subprocess.run([sys.executable, "-m", "lab8_temporal.prep", str(video), str(psf),
+                    "--resolution", "17", "13", "--psf-scale", "2",
+                    "--noise-std", "0.03", "--noise-seed", "42",
+                    "--output-dir", str(tmp_path / "noisy")],
+                   cwd=root, check=True, capture_output=True, text=True)
+    repeated = prepare(video, psf, (17, 13), tmp_path / "repeated", psf_scale=2,
+                       noise_std=.03, noise_seed=42)
+    with np.load(tmp_path / "noisy" / "dataset.npz") as noisy, np.load(dataset_path) as clean_data, np.load(repeated) as again:
+        np.testing.assert_array_equal(noisy["measurement"], again["measurement"])
+        np.testing.assert_array_equal(noisy["reference"], clean_data["reference"])
+        np.testing.assert_array_equal(noisy["psf"], clean_data["psf"])
+        noise = noisy["measurement"] - clean_data["measurement"]
+        assert abs(noise.mean()) < .003
+        assert abs(noise.std() - .03) < .003
+        assert noisy["measurement"].min() < 0  # Scientific data is not clipped.
+        metadata = json.loads(str(noisy["metadata"]))
+        assert metadata["noise_std"] == .03 and metadata["noise_seed"] == 42
+    for bad_std in (-1, np.nan, np.inf):
+        with pytest.raises(ValueError, match="noise_std"):
+            prepare(video, psf, (17, 13), tmp_path / "bad", noise_std=bad_std)
+    with pytest.raises(ValueError, match="noise_seed"):
+        prepare(video, psf, (17, 13), tmp_path / "bad", noise_seed=-1)
     subprocess.run([sys.executable, "-m", "lab8_temporal.main", str(dataset_path),
                     "--lambda-spatial", "-4", "--lambda-temporal", "-6",
                     "--num-iters", "3", "--output-dir", str(tmp_path / "result")],
